@@ -1,12 +1,11 @@
 mod db;
-mod structures;
-
-use crate::structures::{ActionEnum, EventEnum};
+pub mod structures;
+use crate::structures::websocket::actions::ActionEnum;
+use crate::structures::websocket::events::EventEnum;
 use dotenv::dotenv;
-use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::{stream::StreamExt, SinkExt, TryStreamExt};
+use futures_util::stream::SplitSink;
+use futures_util::{stream::StreamExt, SinkExt};
 use rand::random;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
@@ -16,12 +15,10 @@ use tokio::{
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::WebSocketStream;
 
-//type read = SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>;
-
 type UserList = HashMap<u32, String>;
 
 #[derive(Clone, Debug)]
-struct MessageCount {
+pub struct MessageCount {
     pub message: String,
     pub sent_by: u32,
     pub ids: HashSet<u32>,
@@ -138,14 +135,33 @@ async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketA
     // actions: user sending requests events: updating other users on events
     let (events, mut actions) = stream.split();
 
-
-
-    tokio::spawn(connect_events(events, id, state.clone()));
+    let events = Arc::new(RwLock::new(events));
+    tokio::spawn(connect_events(events.clone(), id, state.clone()));
     loop {
         if let Some(Ok(msg)) = actions.next().await {
-            state.write().await.message_add(id, msg.to_string());
+            let Ok(data) = serde_json::from_str::<ActionEnum>(&msg.to_string()) else {
+                println!("data schema does not match, defaulting to message");
+                state.write().await.message_add(id, msg.to_string());
+                continue;
+            };
 
-            println!("{msg}");
+            if msg.is_binary() {
+                println!("YIPEEE BINARY");
+                continue;
+            };
+
+            match data {
+                ActionEnum::Ping { data } => {
+                    println!("poong");
+                    events
+                        .write()
+                        .await
+                        .send(EventEnum::Pong { data }.into())
+                        .await
+                        .unwrap();
+                }
+                _ => {}
+            }
         } else {
             println!("connection closed");
             state.write().await.user_remove(id);
@@ -155,17 +171,17 @@ async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketA
 }
 
 async fn connect_events(
-    mut events: SplitSink<WebSocketStream<TcpStream>, Message>,
+    events: Arc<RwLock<SplitSink<WebSocketStream<TcpStream>, Message>>>,
     id: u32,
     state: Arc<RwLock<States>>,
 ) {
     loop {
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_millis(1)).await;
 
         let data = state.write().await.do_send(id).clone();
 
         for message in data {
-            events.send(message.into()).await;
+            events.write().await.send(Message::Text(message)).await;
         }
     }
 }
