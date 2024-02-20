@@ -1,17 +1,24 @@
+use crate::structures::is_false;
+use crate::structures::is_none;
+use crate::structures::models::{Channel, UserSafe};
+use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
-use tokio_tungstenite::tungstenite::Message;
-use crate::structures::websocket::if_false;
-use crate::structures::websocket::is_none;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(tag = "action")]
 pub enum EventEnum {
     Establish {
-        messages: Vec<String>,
+        channels: Vec<Channel>,
+        users: Vec<UserSafe>,
+        version: String,
     },
     MessageSend {
         id: String,
-        message: String,
+        author: String,
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        reply: Option<String>,
+        channel: String,
     },
     MessageEdit {
         id: String,
@@ -21,7 +28,7 @@ pub enum EventEnum {
         id: String,
     },
     TypeStatus {
-        #[serde(skip_serializing_if = "if_false")]
+        #[serde(skip_serializing_if = "is_false")]
         typing: bool,
         channel: String,
         user: String,
@@ -30,6 +37,8 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "is_none")]
         data: Option<usize>,
     },
+    #[default]
+    InvalidEvent,
 }
 impl From<EventEnum> for Message {
     fn from(value: EventEnum) -> Self {

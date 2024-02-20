@@ -1,4 +1,4 @@
-use serde::{Deserialize};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 #[serde(tag = "action")]
@@ -10,12 +10,15 @@ pub enum ActionEnum {
     MessageSend {
         content: String,
         reply: Option<String>,
+        channel: String,
     },
     MessageEdit {
         message: String,
+        channel: String,
     },
     MessageDelete {
         message: String,
+        channel: String,
     },
     TypeStatus {
         typing: bool,

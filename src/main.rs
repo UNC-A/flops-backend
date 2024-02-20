@@ -1,187 +1,185 @@
-mod db;
+pub mod db;
 pub mod structures;
-use crate::structures::websocket::actions::ActionEnum;
-use crate::structures::websocket::events::EventEnum;
-use dotenv::dotenv;
-use futures_util::stream::SplitSink;
-use futures_util::{stream::StreamExt, SinkExt};
-use rand::random;
-use std::collections::{HashMap, HashSet};
-use std::{env, net::SocketAddr, sync::Arc, time::Duration};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::RwLock,
+
+use crate::structures::models::User;
+use crate::{
+    db::{Data, EventMessage},
+    structures::{
+        rand,
+        websocket::{actions::ActionEnum, events::EventEnum},
+    },
 };
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::WebSocketStream;
-
-type UserList = HashMap<u32, String>;
-
-#[derive(Clone, Debug)]
-pub struct MessageCount {
-    pub message: String,
-    pub sent_by: u32,
-    pub ids: HashSet<u32>,
-}
-
-#[derive(Clone, Default, Debug)]
-pub struct States {
-    pub messages: Vec<MessageCount>,
-    pub user_list: UserList,
-}
-
-impl States {
-    pub fn user_remove(&mut self, id: u32) {
-        self.user_list.remove(&id);
-        self.messages = self
-            .messages
-            .clone()
-            .into_iter()
-            .map(|mut a| {
-                a.ids.remove(&id);
-                a
-            })
-            .collect()
-    }
-    pub fn user_add(&mut self, id: u32, address: String) {
-        self.user_list.insert(id, address);
-        self.messages = self
-            .messages
-            .clone()
-            .into_iter()
-            .map(|mut a| {
-                if id != a.sent_by {
-                    a.ids.insert(id);
-                };
-                a
-            })
-            .collect()
-    }
-    // sends a collection of messages to send, and removes id from each of them
-    pub fn do_send(&mut self, id: u32) -> Vec<String> {
-        // applicable messages
-        let data = self
-            .messages
-            .clone()
-            .into_iter()
-            .filter(|a| a.sent_by != id)
-            .map(|a| a.message)
-            .collect();
-        // remove ids
-        self.messages = self
-            .messages
-            .clone()
-            .into_iter()
-            .map(|mut a| {
-                a.ids.remove(&id);
-                a
-            })
-            .filter(|a| !a.ids.is_empty())
-            .collect();
-        data
-    }
-
-    pub fn message_add(&mut self, id: u32, message: String) {
-        self.messages.push(MessageCount {
-            message,
-            sent_by: id,
-            ids: self
-                .user_list
-                .clone()
-                .into_iter()
-                .filter_map(
-                    |(iter_id, _)| {
-                        if iter_id != id {
-                            Some(iter_id)
-                        } else {
-                            None
-                        }
-                    },
-                )
-                .collect(),
-        })
-    }
-}
+use axum::{
+    extract::{
+        ws::{Message, WebSocket},
+        RawQuery, WebSocketUpgrade,
+    },
+    response::Response,
+    routing::get,
+    Extension, Router,
+};
+use dotenv::dotenv;
+use futures_util::stream::SplitStream;
+use futures_util::{stream::SplitSink, SinkExt, StreamExt};
+use std::{env, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
+    println!("INIT: env");
     dotenv().ok();
+    let db = Data::start(false)
+        .await
+        .unwrap()
+        .inject_content()
+        .await
+        .unwrap();
+    println!("INIT: database");
 
-    // in memory database
-    let state: Arc<RwLock<States>> = Default::default();
-
-    println!("starting WS server");
-
-    let socket = TcpListener::bind(env::var("BIND").unwrap()).await.unwrap();
-    tokio::spawn(checker(state.clone()));
-    while let Ok((stream, address)) = socket.accept().await {
-        tokio::spawn(connect(state.clone(), stream, address));
-    }
+    println!("INIT: TCP");
+    let listener = tokio::net::TcpListener::bind(env::var("BIND").unwrap())
+        .await
+        .unwrap();
+    println!("INIT: bound to {}", listener.local_addr().unwrap());
+    axum::serve(listener, app(db)).await.unwrap();
 }
 
-async fn checker(list: Arc<RwLock<States>>) {
-    loop {
-        tokio::time::sleep(Duration::from_secs(5)).await;
-        println!("{:?}", list.read().await.clone(),);
-    }
+fn app(db: Data) -> Router {
+    Router::new().route("/", get(main_session_handle).layer(Extension(db)))
 }
 
-async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketAddr) {
-    let id = random();
-    state.write().await.user_add(id, address.to_string());
+// -w- upgrade shit
+async fn main_session_handle(
+    ws: WebSocketUpgrade,
+    RawQuery(query): RawQuery,
+    Extension(db): Extension<Data>,
+) -> Response {
+    ws.on_upgrade(|socket| async move {
+        let (events, actions) = socket.split();
+        let (events, actions) = (
+            Arc::new(RwLock::new(events)),
+            Arc::new(RwLock::new(actions)),
+        );
 
-    let stream = tokio_tungstenite::accept_async(stream).await.unwrap();
+        let Ok(Some((user, connection))) = db.authenticate(query).await else {
+            let _ = events
+                .write()
+                .await
+                .send(Message::Text(
+                    "A session token is required for websocket".to_string(),
+                ))
+                .await;
+            println!("early return due to invalid token");
+            return;
+        };
+        tokio::join!(
+            events_handler(db.clone(), user.id.clone(), events.clone()),
+            action_handler(db, user, events, actions, connection),
+        );
+    })
+}
 
-    // actions: user sending requests events: updating other users on events
-    let (events, mut actions) = stream.split();
+pub async fn action_handler(
+    db: Data,
+    user: User,
+    events: Arc<RwLock<SplitSink<WebSocket, Message>>>,
+    actions: Arc<RwLock<SplitStream<WebSocket>>>,
+    connection: String,
+) {
+    let (channels, users) = db.establish(&user.id).await.unwrap();
+    let _ = events
+        .write()
+        .await
+        .send(EventEnum::Establish { channels, users, version: env!("CARGO_PKG_VERSION").to_string() }.into())
+        .await;
 
-    let events = Arc::new(RwLock::new(events));
-    tokio::spawn(connect_events(events.clone(), id, state.clone()));
-    loop {
-        if let Some(Ok(msg)) = actions.next().await {
-            let Ok(data) = serde_json::from_str::<ActionEnum>(&msg.to_string()) else {
-                println!("data schema does not match, defaulting to message");
-                state.write().await.message_add(id, msg.to_string());
-                continue;
-            };
+    while let Some(Ok(msg)) = actions.write().await.next().await {
+        let Ok(msg) = msg.to_text() else {
+            println!("message body is not text nor bytes");
+            continue;
+        };
+        let Ok(msg) = serde_json::from_str::<ActionEnum>(msg) else {
+            println!("unable to deserialize");
+            continue;
+        };
 
-            if msg.is_binary() {
-                println!("YIPEEE BINARY");
-                continue;
-            };
-
-            match data {
-                ActionEnum::Ping { data } => {
-                    println!("poong");
-                    events
-                        .write()
-                        .await
-                        .send(EventEnum::Pong { data }.into())
-                        .await
-                        .unwrap();
-                }
-                _ => {}
+        match msg {
+            ActionEnum::Establish => {}
+            ActionEnum::Ping { data } => {
+                let _ = events
+                    .write()
+                    .await
+                    .send(EventEnum::Pong { data }.into())
+                    .await;
             }
-        } else {
-            println!("connection closed");
-            state.write().await.user_remove(id);
-            break;
+            ActionEnum::MessageSend {
+                content,
+                reply,
+                channel,
+            } => {
+                // integrity check
+                let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
+                    continue;
+                };
+                if content.clone().replace([' ', '\n'], "").is_empty() {
+                    continue;
+                };
+                channel.members.shift_remove(&user.id);
+                db.state.pending_messages.write().await.push(EventMessage {
+                    author: user.id.clone(),
+                    targets: channel.members,
+                    item: EventEnum::MessageSend {
+                        id: rand(),
+                        author: user.id.clone(),
+                        content,
+                        reply,
+                        channel: channel.id,
+                    },
+                });
+            }
+            ActionEnum::MessageEdit { .. } => {}
+            ActionEnum::MessageDelete { .. } => {}
+            ActionEnum::TypeStatus { typing, channel } => {
+                let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
+                    continue;
+                };
+                channel.members.shift_remove(&user.id);
+                db.state.pending_messages.write().await.push(EventMessage {
+                    author: user.id.clone(),
+                    targets: channel.members,
+                    item: EventEnum::TypeStatus {
+                        typing,
+                        channel: channel.id,
+                        user: user.id.clone(),
+                    },
+                });
+            }
         }
     }
+    // assumed disconnected
+    let _ = db.logout(user.id, connection).await;
 }
-
-async fn connect_events(
-    events: Arc<RwLock<SplitSink<WebSocketStream<TcpStream>, Message>>>,
-    id: u32,
-    state: Arc<RwLock<States>>,
+pub async fn events_handler(
+    db: Data,
+    user_id: String,
+    events: Arc<RwLock<SplitSink<WebSocket, Message>>>,
 ) {
     loop {
         tokio::time::sleep(Duration::from_millis(1)).await;
+        let messages = db.state.pending_messages.read().await.clone();
+        for (index, message) in messages.into_iter().enumerate() {
+            if message.clone().targets.contains(&user_id) {
+                let _ = events.write().await.send(message.clone().item.into()).await;
 
-        let data = state.write().await.do_send(id).clone();
-
-        for message in data {
-            events.write().await.send(Message::Text(message)).await;
+                let mut message = message.clone();
+                message.targets.shift_remove(&user_id);
+                if !message.targets.is_empty() {
+                    db.state.pending_messages.write().await.remove(index);
+                } else {
+                    // WARNING: UNSAFE CALL
+                    db.state.pending_messages.write().await[index].targets = message.targets;
+                }
+            }
         }
     }
 }
