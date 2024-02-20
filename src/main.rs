@@ -95,11 +95,11 @@ pub async fn action_handler(
 
     while let Some(Ok(msg)) = actions.write().await.next().await {
         let Ok(msg) = msg.to_text() else {
-            println!("message body is not text nor bytes");
+            println!("message body is not text nor bytes, sent by {} ({})", &user.username, &user.id);
             continue;
         };
         let Ok(msg) = serde_json::from_str::<ActionEnum>(msg) else {
-            println!("unable to deserialize");
+            println!("unable to deserialize, sent by {} ({})", &user.username, &user.id);
             continue;
         };
 

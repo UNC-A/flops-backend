@@ -1,6 +1,7 @@
-use crate::structures::is_false;
-use crate::structures::is_none;
-use crate::structures::models::{Channel, UserSafe};
+use crate::structures::{
+    is_false, is_none,
+    models::{Channel, UserSafe},
+};
 use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
 

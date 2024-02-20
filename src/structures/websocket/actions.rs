@@ -15,13 +15,14 @@ pub enum ActionEnum {
     MessageEdit {
         message: String,
         channel: String,
+        content: String,
     },
     MessageDelete {
         message: String,
         channel: String,
     },
     TypeStatus {
-        typing: bool,
+        typing: Option<bool>,
         channel: String,
     },
 }
