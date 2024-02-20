@@ -5,7 +5,8 @@ use crate::structures::websocket::events::EventEnum;
 use dotenv::dotenv;
 use futures_util::stream::SplitSink;
 use futures_util::{stream::StreamExt, SinkExt};
-use rand::random;
+
+use crate::structures::rand;
 use std::collections::{HashMap, HashSet};
 use std::{env, net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{
@@ -127,7 +128,7 @@ async fn checker(list: Arc<RwLock<States>>) {
 }
 
 async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketAddr) {
-    let id = random();
+    let id = rand().parse().unwrap();
     state.write().await.user_add(id, address.to_string());
 
     let stream = tokio_tungstenite::accept_async(stream).await.unwrap();
@@ -137,6 +138,8 @@ async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketA
 
     let events = Arc::new(RwLock::new(events));
     tokio::spawn(connect_events(events.clone(), id, state.clone()));
+    // qwq
+    tokio::spawn(connect_send_test(events.clone()));
     loop {
         if let Some(Ok(msg)) = actions.next().await {
             let Ok(data) = serde_json::from_str::<ActionEnum>(&msg.to_string()) else {
@@ -167,6 +170,23 @@ async fn connect(state: Arc<RwLock<States>>, stream: TcpStream, address: SocketA
             state.write().await.user_remove(id);
             break;
         }
+    }
+}
+
+async fn connect_send_test(events: Arc<RwLock<SplitSink<WebSocketStream<TcpStream>, Message>>>) {
+    loop {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        let _ = events
+            .write()
+            .await
+            .send(
+                EventEnum::MessageSend {
+                    id: rand(),
+                    message: "egg".to_string(),
+                }
+                .into(),
+            )
+            .await;
     }
 }
 

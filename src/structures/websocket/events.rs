@@ -33,6 +33,6 @@ pub enum EventEnum {
 }
 impl From<EventEnum> for Message {
     fn from(value: EventEnum) -> Self {
-        Message::from(serde_json::to_string(&value).unwrap())
+        Message::from(serde_json::to_vec(&value).unwrap())
     }
 }
