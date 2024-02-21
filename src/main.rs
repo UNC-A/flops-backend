@@ -22,6 +22,7 @@ use dotenv::dotenv;
 use futures_util::stream::SplitStream;
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use std::{env, sync::Arc, time::Duration};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
 
 #[tokio::main]
@@ -134,6 +135,7 @@ pub async fn action_handler(
                         content,
                         reply,
                         channel: channel.id,
+                        created: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
                     },
                 });
             }
@@ -148,7 +150,7 @@ pub async fn action_handler(
                     author: user.id.clone(),
                     targets: channel.members,
                     item: EventEnum::TypeStatus {
-                        typing,
+                        typing: typing.unwrap_or_default(),
                         channel: channel.id,
                         user: user.id.clone(),
                     },

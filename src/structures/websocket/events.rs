@@ -20,6 +20,7 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "Option::is_none")]
         reply: Option<String>,
         channel: String,
+        created: u64,
     },
     MessageEdit {
         id: String,
