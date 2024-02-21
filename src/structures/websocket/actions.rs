@@ -8,7 +8,7 @@ pub enum ActionEnum {
         data: Option<usize>,
     },
     MessageSend {
-        content: String,
+        message: String,
         reply: Option<String>,
     },
     MessageEdit {
