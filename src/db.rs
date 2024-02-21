@@ -1,9 +1,7 @@
 use futures_util::StreamExt;
-use mongodb::bson::{doc, Document};
-use mongodb::results::UpdateResult;
+use mongodb::bson::{doc};
 use mongodb::Collection;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 macro_rules! find_one {
