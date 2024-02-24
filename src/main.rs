@@ -49,8 +49,8 @@ async fn main() {
 
 fn app(db: Data) -> Router {
     Router::new()
-        .route("/ws", get(main_session_handle).layer(Extension(db)))
-        .route("/available", get(handler_running))
+        .route("/ws/", get(main_session_handle).layer(Extension(db)))
+        .route("/available/", get(handler_running))
 }
 
 async fn handler_running() -> impl IntoResponse {
