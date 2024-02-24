@@ -1,5 +1,6 @@
+path=""
 # ensure absolute dir
-cd /mnt/raid/unca/backend
+cd "$path" || exit
 # update software
 git pull
 cargo update
