@@ -11,14 +11,17 @@ pub enum EventEnum {
     Establish {
         channels: Vec<Channel>,
         users: Vec<UserSafe>,
+        you: String,
         version: String,
+
     },
     MessageSend {
         id: String,
         author: String,
         content: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        reply: Option<String>,
+        // todo pending implementation, a part of 0.1.1
+       // #[serde(skip_serializing_if = "Option::is_none")]
+       // reply: Option<String>,
         channel: String,
     },
     // todo pending implementation

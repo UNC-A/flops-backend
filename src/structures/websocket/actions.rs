@@ -9,10 +9,11 @@ pub enum ActionEnum {
     },
     MessageSend {
         content: String,
-        reply: Option<String>,
+        // todo pending implementation, a part of 0.1.1
+        //reply: Option<String>,
         channel: String,
     },
-    // todo pending implementation
+    // todo pending implementation, a part of 0.1.1
     // MessageEdit {
     //     message: String,
     //     channel: String,

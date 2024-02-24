@@ -1,12 +1,12 @@
-use crate::structures::is_false;
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Channel {
     #[serde(rename = "_id")]
     pub id: String,
-    #[serde(skip_serializing_if = "is_false", default)]
-    pub is_self: bool,
+    // todo not yet implemented, a part of 0.1.1
+    //#[serde(skip_serializing_if = "is_false", default)]
+    //pub is_self: bool,
     #[serde(skip_serializing_if = "IndexSet::is_empty", default)]
     pub members: IndexSet<String>,
 }
@@ -17,9 +17,6 @@ pub struct User {
     pub username: String,
     #[serde(skip_serializing_if = "IndexSet::is_empty", default)]
     pub sessions: IndexSet<String>,
-    // stateful tracker for current sessions
-    #[serde(skip_serializing_if = "IndexSet::is_empty", default)]
-    pub connections: IndexSet<String>,
 }
 
 impl From<User> for UserSafe {
@@ -43,7 +40,8 @@ pub struct Message {
     pub id: String,
     pub author: String,
     pub content: String,
-    #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub reply: Option<String>,
+  // todo not yet implemented, a part of 0.1.1
+  //  #[serde(skip_serializing_if = "Option::is_none", default)]
+  //  pub reply: Option<String>,
     pub channel: String,
 }

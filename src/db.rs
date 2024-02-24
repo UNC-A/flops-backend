@@ -227,17 +227,14 @@ mod tests {
                 vec![
                     Channel {
                         id: c1_id.clone(),
-                        is_self: false,
                         members: [user_id.clone(), rand()].into(),
                     },
                     Channel {
                         id: c2_id.clone(),
-                        is_self: false,
                         members: [user_id.clone(), rand()].into(),
                     },
                     Channel {
                         id: c3_id.clone(),
-                        is_self: false,
                         members: [rand(), rand()].into(),
                     },
                 ],
@@ -252,21 +249,18 @@ mod tests {
                         id: m1_id.clone(),
                         author: rand(),
                         content: "hello world".to_string(),
-                        reply: None,
                         channel: c1_id.to_string(),
                     },
                     Message {
                         author: rand(),
                         id: m2_id.clone(),
                         content: "hello stranger".to_string(),
-                        reply: None,
                         channel: c1_id.to_string(),
                     },
                     Message {
                         author: rand(),
                         id: m3_id.clone(),
                         content: "owo".to_string(),
-                        reply: None,
                         channel: c3_id.to_string(),
                     },
                 ],

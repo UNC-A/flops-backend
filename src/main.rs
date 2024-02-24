@@ -107,6 +107,7 @@ pub async fn action_handler(
                 channels,
                 users,
                 version: env!("CARGO_PKG_VERSION").to_string(),
+                you: user.id.clone(),
             }
             .into(),
         )
@@ -137,11 +138,7 @@ pub async fn action_handler(
                     .send(EventEnum::Pong { data }.into())
                     .await;
             }
-            ActionEnum::MessageSend {
-                content,
-                reply,
-                channel,
-            } => {
+            ActionEnum::MessageSend { content, channel } => {
                 // integrity check
                 let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
                     continue;
@@ -157,7 +154,7 @@ pub async fn action_handler(
                         id: rand(),
                         author: user.id.clone(),
                         content,
-                        reply,
+
                         channel: channel.id,
                     },
                 });
