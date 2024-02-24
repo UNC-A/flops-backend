@@ -218,20 +218,22 @@ pub async fn events_handler(
     loop {
         tokio::time::sleep(Duration::from_millis(delay)).await;
         let messages = db.state.pending_messages.read().await.clone();
-        for (index, message) in messages.into_iter().enumerate() {
-            if message.clone().targets.contains(&user_id) {
-                let _ = events.write().await.send(message.clone().item.into()).await;
 
-                let mut message = message.clone();
-                message.targets.shift_remove(&user_id);
-                if !message.targets.is_empty() {
-                    db.state.pending_messages.write().await.remove(index);
-                } else {
-                    // WARNING: UNSAFE CALL todo
-                    // this may result in panics, safety status is unknown
-                    db.state.pending_messages.write().await[index].targets = message.targets;
-                }
-            }
+        if let Some(message) = messages.first() {
+            if message.targets.is_empty() {
+                db.state.pending_messages.write().await.remove(0);
+                continue;
+            };
+            if !message.targets.contains(&user_id) {
+                continue;
+            };
+            // assumed message is for author
+            let _ = events.write().await.send(message.clone().item.into()).await;
+
+            // update with new id list
+            let mut new_targets = message.clone().targets;
+            new_targets.shift_remove(&user_id);
+            db.state.pending_messages.write().await[0].targets = new_targets;
         }
     }
 }
