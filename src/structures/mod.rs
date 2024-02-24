@@ -3,7 +3,6 @@ use rand::random;
 pub mod models;
 pub mod websocket;
 
-
 /// # rand
 /// randomly generates u32 numbers and turns into strings, used for IDs
 pub fn rand() -> String {

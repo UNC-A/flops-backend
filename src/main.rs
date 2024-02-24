@@ -24,11 +24,7 @@ use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
-use std::{
-    env,
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use std::{env, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
 #[tokio::main]
@@ -163,15 +159,10 @@ pub async fn action_handler(
                         content,
                         reply,
                         channel: channel.id,
-                        created: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_secs(),
                     },
                 });
             }
-            ActionEnum::MessageEdit { .. } => {}
-            ActionEnum::MessageDelete { .. } => {}
+
             ActionEnum::TypeStatus { typing, channel } => {
                 let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
                     continue;

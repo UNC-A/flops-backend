@@ -9,17 +9,6 @@ use indexmap::IndexSet;
 use mongodb::{bson::doc, Client, Collection};
 use std::{env, sync::Arc};
 use tokio::sync::RwLock;
-
-macro_rules! cursor_get {
-    ($cursor:expr, $filter:expr) => {{
-        $cursor
-            .find($filter, None)
-            .await?
-            .filter_map(|a| async move { a.ok() })
-            .collect()
-            .await
-    }};
-}
 macro_rules! collect {
     ($cursor:expr) => {{
         $cursor
@@ -109,43 +98,6 @@ impl Data {
             .collect();
 
         Ok((channels, users))
-    }
-
-    async fn get_messages(&self, channel_id: impl Into<String>) -> Result<Vec<Message>> {
-        Ok(collect!(
-            self.messages
-                .find(doc!("channel": channel_id.into()), None)
-                .await?
-        ))
-    }
-    async fn get_channels(&self, user_id: impl Into<String>) -> Result<Vec<Channel>> {
-        Ok(collect!(
-            self.channels
-                .find(doc!("members": user_id.into()), None)
-                .await?
-        ))
-    }
-
-    async fn get_accessible_messages(&self, user_id: impl Into<String>) -> Result<Vec<Message>> {
-        let user_id = user_id.into();
-        let channels: Vec<Channel> = self.get_channels(&user_id).await?.into_iter().collect();
-
-        let mut message_list = Vec::new();
-
-        for channel in channels {
-            if channel.members.contains(&user_id) {
-                message_list.push(self.get_messages(channel.id));
-            }
-        }
-
-        let messages: Vec<Message> = join_all(message_list)
-            .await
-            .into_iter()
-            .filter_map(|a| a.ok())
-            .flat_map(|inner_vec| inner_vec.into_iter())
-            .collect();
-
-        Ok(messages)
     }
 
     pub async fn inject_content(&mut self) -> Result<Self> {
@@ -248,6 +200,101 @@ mod tests {
     use super::*;
     use dotenv::dotenv;
 
+    /// this needs an explanation
+    /// channel one and two are accessible to the user
+    /// channel three is not
+    /// message one and two are sent in channel one
+    /// message three is sent in channel three (non-accessible)
+    ///
+    /// the purpose of these tests is to see if disability is working correctly
+    async fn fake_data(db: &Data) -> Result<TestData> {
+        let user_id = rand();
+        // fake data
+        let user = User {
+            id: user_id.to_string(),
+            username: "Person".to_string(),
+            ..Default::default()
+        };
+        db.users.insert_one(user, None).await?;
+
+        // c1-2 contain user, c3 does not
+        let (c1_id, c2_id, c3_id): (String, String, String) = (rand(), rand(), rand());
+
+        // m1-2 contain user, m3 does not
+        let (m1_id, m2_id, m3_id): (String, String, String) = (rand(), rand(), rand());
+        db.channels
+            .insert_many(
+                vec![
+                    Channel {
+                        id: c1_id.clone(),
+                        is_self: false,
+                        members: [user_id.clone(), rand()].into(),
+                    },
+                    Channel {
+                        id: c2_id.clone(),
+                        is_self: false,
+                        members: [user_id.clone(), rand()].into(),
+                    },
+                    Channel {
+                        id: c3_id.clone(),
+                        is_self: false,
+                        members: [rand(), rand()].into(),
+                    },
+                ],
+                None,
+            )
+            .await?;
+
+        db.messages
+            .insert_many(
+                vec![
+                    Message {
+                        id: m1_id.clone(),
+                        author: rand(),
+                        content: "hello world".to_string(),
+                        reply: None,
+                        channel: c1_id.to_string(),
+                    },
+                    Message {
+                        author: rand(),
+                        id: m2_id.clone(),
+                        content: "hello stranger".to_string(),
+                        reply: None,
+                        channel: c1_id.to_string(),
+                    },
+                    Message {
+                        author: rand(),
+                        id: m3_id.clone(),
+                        content: "owo".to_string(),
+                        reply: None,
+                        channel: c3_id.to_string(),
+                    },
+                ],
+                None,
+            )
+            .await?;
+
+        Ok(TestData {
+            user_id,
+            c1_id,
+            c2_id,
+            c3_id,
+            m1_id,
+            m2_id,
+            m3_id,
+        })
+    }
+
+    pub struct TestData {
+        pub user_id: String,
+        pub c1_id: String,
+        pub c2_id: String,
+        pub c3_id: String,
+        pub m1_id: String,
+        pub m2_id: String,
+        pub m3_id: String,
+    }
+
     #[tokio::test]
     async fn db_establish_test() {
         // db connection
@@ -277,99 +324,4 @@ mod tests {
         assert_eq!(a.len(), 2);
         db.delete_all().await.unwrap();
     }
-}
-
-/// this needs an explanation
-/// channel one and two are accessible to the user
-/// channel three is not
-/// message one and two are sent in channel one
-/// message three is sent in channel three (non-accessible)
-///
-/// the purpose of these tests is to see if disability is working correctly
-async fn fake_data(db: &Data) -> Result<TestData> {
-    let user_id = rand();
-    // fake data
-    let user = User {
-        id: user_id.to_string(),
-        username: "Person".to_string(),
-        ..Default::default()
-    };
-    db.users.insert_one(user, None).await?;
-
-    // c1-2 contain user, c3 does not
-    let (c1_id, c2_id, c3_id): (String, String, String) = (rand(), rand(), rand());
-
-    // m1-2 contain user, m3 does not
-    let (m1_id, m2_id, m3_id): (String, String, String) = (rand(), rand(), rand());
-    db.channels
-        .insert_many(
-            vec![
-                Channel {
-                    id: c1_id.clone(),
-                    is_self: false,
-                    members: [user_id.clone(), rand()].into(),
-                },
-                Channel {
-                    id: c2_id.clone(),
-                    is_self: false,
-                    members: [user_id.clone(), rand()].into(),
-                },
-                Channel {
-                    id: c3_id.clone(),
-                    is_self: false,
-                    members: [rand(), rand()].into(),
-                },
-            ],
-            None,
-        )
-        .await?;
-
-    db.messages
-        .insert_many(
-            vec![
-                Message {
-                    id: m1_id.clone(),
-                    author: rand(),
-                    content: "hello world".to_string(),
-                    reply: None,
-                    channel: c1_id.to_string(),
-                },
-                Message {
-                    author: rand(),
-                    id: m2_id.clone(),
-                    content: "hello stranger".to_string(),
-                    reply: None,
-                    channel: c1_id.to_string(),
-                },
-                Message {
-                    author: rand(),
-                    id: m3_id.clone(),
-                    content: "owo".to_string(),
-                    reply: None,
-                    channel: c3_id.to_string(),
-                },
-            ],
-            None,
-        )
-        .await?;
-
-    Ok(TestData {
-        user_id,
-        c1_id,
-        c2_id,
-        c3_id,
-        m1_id,
-        m2_id,
-        m3_id,
-    })
-}
-
-pub struct TestData {
-    pub user_id: String,
-    pub c1_id: String,
-    pub c2_id: String,
-    pub c3_id: String,
-    pub m1_id: String,
-    pub m2_id: String,
-    pub m3_id: String,
 }
