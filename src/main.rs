@@ -1,9 +1,9 @@
 pub mod db;
 pub mod structures;
 
-use crate::structures::models::User;
 use crate::{
     db::{Data, EventMessage},
+    structures::models::User,
     structures::{
         rand,
         websocket::{actions::ActionEnum, events::EventEnum},
@@ -14,15 +14,21 @@ use axum::{
         ws::{Message, WebSocket},
         RawQuery, WebSocketUpgrade,
     },
-    response::Response,
+    http::StatusCode,
+    response::{IntoResponse, Response},
     routing::get,
     Extension, Router,
 };
 use dotenv::dotenv;
-use futures_util::stream::SplitStream;
-use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use std::{env, sync::Arc, time::Duration};
-use std::time::{SystemTime, UNIX_EPOCH};
+use futures_util::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
+use std::{
+    env,
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tokio::sync::RwLock;
 
 #[tokio::main]
@@ -31,25 +37,32 @@ async fn main() {
     dotenv().ok();
     let db = Data::start(false)
         .await
-        .unwrap()
+        .expect("failed to load database")
         .inject_content()
         .await
-        .unwrap();
+        .expect("failed to initialise fake data");
     println!("INIT: database");
 
     println!("INIT: TCP");
     let listener = tokio::net::TcpListener::bind(env::var("BIND").unwrap())
         .await
-        .unwrap();
+        .expect("failed to bind to local port");
     println!("INIT: bound to {}", listener.local_addr().unwrap());
     axum::serve(listener, app(db)).await.unwrap();
 }
 
 fn app(db: Data) -> Router {
-    Router::new().route("/", get(main_session_handle).layer(Extension(db)))
+    Router::new()
+        .route("/ws", get(main_session_handle).layer(Extension(db)))
+        .route("/available", get(handler_running))
 }
 
-// -w- upgrade shit
+async fn handler_running() -> impl IntoResponse {
+    (StatusCode::NO_CONTENT, "")
+}
+
+/// provides a handler for the upgraded websocket session, once session authentication is properly handled
+/// it starts the 'events' and 'actions' handler to manage incoming and outgoing connections
 async fn main_session_handle(
     ws: WebSocketUpgrade,
     RawQuery(query): RawQuery,
@@ -79,7 +92,9 @@ async fn main_session_handle(
         );
     })
 }
-
+/// # action handler
+/// this function reads incoming requests, depending on applicability and actions it adds events
+/// to the memory database, this function is also responsible for sending establish
 pub async fn action_handler(
     db: Data,
     user: User,
@@ -91,16 +106,29 @@ pub async fn action_handler(
     let _ = events
         .write()
         .await
-        .send(EventEnum::Establish { channels, users, version: env!("CARGO_PKG_VERSION").to_string() }.into())
+        .send(
+            EventEnum::Establish {
+                channels,
+                users,
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            }
+            .into(),
+        )
         .await;
 
     while let Some(Ok(msg)) = actions.write().await.next().await {
         let Ok(msg) = msg.to_text() else {
-            println!("message body is not text nor bytes, sent by {} ({})", &user.username, &user.id);
+            println!(
+                "message body is not text nor bytes, sent by {} ({})",
+                &user.username, &user.id
+            );
             continue;
         };
         let Ok(msg) = serde_json::from_str::<ActionEnum>(msg) else {
-            println!("unable to deserialize, sent by {} ({})", &user.username, &user.id);
+            println!(
+                "unable to deserialize, sent by {} ({})",
+                &user.username, &user.id
+            );
             continue;
         };
 
@@ -135,7 +163,10 @@ pub async fn action_handler(
                         content,
                         reply,
                         channel: channel.id,
-                        created: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                        created: SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
                     },
                 });
             }
@@ -161,13 +192,22 @@ pub async fn action_handler(
     // assumed disconnected
     let _ = db.logout(user.id, connection).await;
 }
+
+/// # event_handler
+/// this function reads from the memory database for pending events, and after a certain time interval
+/// it sends all pending events to the specified user
+/// the performance for this model at scale is unknown, and may be migrated to redis or mongo
 pub async fn events_handler(
     db: Data,
     user_id: String,
     events: Arc<RwLock<SplitSink<WebSocket, Message>>>,
 ) {
+    let delay = env::var("EVENT_WAIT")
+        .unwrap_or_default()
+        .parse::<u64>()
+        .unwrap_or(1);
     loop {
-        tokio::time::sleep(Duration::from_millis(1)).await;
+        tokio::time::sleep(Duration::from_millis(delay)).await;
         let messages = db.state.pending_messages.read().await.clone();
         for (index, message) in messages.into_iter().enumerate() {
             if message.clone().targets.contains(&user_id) {
@@ -178,7 +218,8 @@ pub async fn events_handler(
                 if !message.targets.is_empty() {
                     db.state.pending_messages.write().await.remove(index);
                 } else {
-                    // WARNING: UNSAFE CALL
+                    // WARNING: UNSAFE CALL todo
+                    // this may result in panics, safety status is unknown
                     db.state.pending_messages.write().await[index].targets = message.targets;
                 }
             }
