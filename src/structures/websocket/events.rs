@@ -20,15 +20,15 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "Option::is_none")]
         reply: Option<String>,
         channel: String,
-        created: u64,
     },
-    MessageEdit {
-        id: String,
-        content: String,
-    },
-    MessageDelete {
-        id: String,
-    },
+    // todo pending implementation
+    // MessageEdit {
+    //     id: String,
+    //     content: String,
+    // },
+    // MessageDelete {
+    //     id: String,
+    // },
     TypeStatus {
         #[serde(skip_serializing_if = "is_false")]
         typing: bool,

@@ -12,15 +12,16 @@ pub enum ActionEnum {
         reply: Option<String>,
         channel: String,
     },
-    MessageEdit {
-        message: String,
-        channel: String,
-        content: String,
-    },
-    MessageDelete {
-        message: String,
-        channel: String,
-    },
+    // todo pending implementation
+    // MessageEdit {
+    //     message: String,
+    //     channel: String,
+    //     content: String,
+    // },
+    // MessageDelete {
+    //     message: String,
+    //     channel: String,
+    // },
     TypeStatus {
         typing: Option<bool>,
         channel: String,
