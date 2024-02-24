@@ -1,5 +1,5 @@
-use crate::structures::models::UserSafe;
 use crate::structures::{
+    models::UserSafe,
     models::{Channel, Message, User},
     rand,
     websocket::events::EventEnum,
@@ -75,6 +75,14 @@ impl Data {
             .await?)
     }
 
+    async fn get_user_many(&self, users: IndexSet<String>) -> Vec<Result<Option<User>>> {
+        let mut user_list = Vec::new();
+        for user in users {
+            user_list.push(self.get_user(user));
+        }
+        join_all(user_list).await
+    }
+
     pub async fn establish(
         &self,
         user_id: impl Into<String>,
@@ -84,23 +92,25 @@ impl Data {
         let channels: Vec<Channel> =
             collect!(self.channels.find(doc!("members": &user_id), None).await?);
 
-        let mut user_list = Vec::new();
-        for channel in &channels {
-            for member in &channel.members {
-                if member != &user_id {
-                    user_list.push(self.get_user(member));
-                }
-            }
-        }
-        let users: Vec<UserSafe> = join_all(user_list)
+        let member_ids: IndexSet<String> = channels
+            .iter()
+            .flat_map(|channel| channel.members.iter())
+            .cloned()
+            .collect();
+
+        let users: Vec<UserSafe> = self
+            .get_user_many(member_ids)
             .await
             .into_iter()
-            .filter_map(|a| a.ok())
-            .flat_map(|inner_vec| inner_vec.into_iter())
-            .map(|a| a.into())
+            .flat_map(|a| match a {
+                Ok(Some(a)) => Some(a.into()),
+                _ => None,
+            })
             .collect();
+
         Ok((channels, users))
     }
+
     async fn get_messages(&self, channel_id: impl Into<String>) -> Result<Vec<Message>> {
         Ok(collect!(
             self.messages
@@ -142,13 +152,13 @@ impl Data {
         self.delete_all().await?;
         self.users
             .insert_many(
-                serde_json::from_slice::<Vec<User>>(&std::fs::read("users.json")?)?,
+                serde_json::from_slice::<Vec<User>>(&std::fs::read("example.users.json")?)?,
                 None,
             )
             .await?;
         self.channels
             .insert_many(
-                serde_json::from_slice::<Vec<Channel>>(&std::fs::read("channels.json")?)?,
+                serde_json::from_slice::<Vec<Channel>>(&std::fs::read("example.channels.json")?)?,
                 None,
             )
             .await?;
