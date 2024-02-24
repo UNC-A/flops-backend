@@ -84,10 +84,31 @@ async fn main_session_handle(
         };
         tokio::join!(
             events_handler(db.clone(), user.id.clone(), events.clone()),
-            action_handler(db, user, events, actions, connection),
+            action_handler(db.clone(), user, events, actions, connection),
+            action_egg(db)
         );
     })
 }
+
+async fn action_egg(db: Data) {
+    let author = "dsfgdsufygsduygds".to_string();
+
+    loop {
+        tokio::time::sleep(Duration::from_secs(5)).await;
+        db.state.pending_messages.write().await.push(EventMessage {
+            // user one
+            author: author.clone(), // user two
+            targets: ["fsdgyfildsfdsh".to_string()].into(),
+            item: EventEnum::MessageSend {
+                id: rand(),
+                author: author.clone(),
+                content: "egg".to_string(),
+                channel: "gfuoghlsduifhuguda".to_string(),
+            },
+        })
+    }
+}
+
 /// # action handler
 /// this function reads incoming requests, depending on applicability and actions it adds events
 /// to the memory database, this function is also responsible for sending establish

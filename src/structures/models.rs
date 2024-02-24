@@ -40,8 +40,8 @@ pub struct Message {
     pub id: String,
     pub author: String,
     pub content: String,
-  // todo not yet implemented, a part of 0.1.1
-  //  #[serde(skip_serializing_if = "Option::is_none", default)]
-  //  pub reply: Option<String>,
+    // todo not yet implemented, a part of 0.1.1
+    //  #[serde(skip_serializing_if = "Option::is_none", default)]
+    //  pub reply: Option<String>,
     pub channel: String,
 }
