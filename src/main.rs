@@ -92,7 +92,6 @@ async fn main_session_handle(
 
 async fn action_egg(db: Data) {
     let author = "dsfgdsufygsduygds".to_string();
-
     loop {
         tokio::time::sleep(Duration::from_secs(5)).await;
         db.state.pending_messages.write().await.push(EventMessage {
@@ -217,23 +216,26 @@ pub async fn events_handler(
         .unwrap_or(1);
     loop {
         tokio::time::sleep(Duration::from_millis(delay)).await;
-        let messages = db.state.pending_messages.read().await.clone();
-
-        if let Some(message) = messages.first() {
+        let index = &db.state.pending_messages.read().await.len();
+        let message = db.state.pending_messages.read().await.last().cloned();
+        if let Some(message) = message {
             if message.targets.is_empty() {
-                db.state.pending_messages.write().await.remove(0);
+                // verify that message is actually empty
+                db.state.pending_messages.write().await.pop();
                 continue;
             };
             if !message.targets.contains(&user_id) {
                 continue;
             };
             // assumed message is for author
-            let _ = events.write().await.send(message.clone().item.into()).await;
 
             // update with new id list
-            let mut new_targets = message.clone().targets;
+            let mut new_targets = message.targets;
             new_targets.shift_remove(&user_id);
-            db.state.pending_messages.write().await[0].targets = new_targets;
+            db.state.pending_messages.write().await[index - 1].targets = new_targets;
+
+            // send message
+            let _ = events.write().await.send(message.item.into()).await;
         }
     }
 }
