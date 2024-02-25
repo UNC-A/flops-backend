@@ -9,7 +9,6 @@ use futures_util::{stream::StreamExt, SinkExt};
 use crate::structures::rand;
 use std::collections::{HashMap, HashSet};
 use std::{env, net::SocketAddr, sync::Arc, time::Duration};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::RwLock,
@@ -184,7 +183,6 @@ async fn connect_send_test(events: Arc<RwLock<SplitSink<WebSocketStream<TcpStrea
                 EventEnum::MessageSend {
                     id: rand(),
                     message: "egg".to_string(),
-                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
                 }
                 .into(),
             )

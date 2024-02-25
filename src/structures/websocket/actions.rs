@@ -9,7 +9,6 @@ pub enum ActionEnum {
     },
     MessageSend {
         message: String,
-        reply: Option<String>,
     },
     MessageEdit {
         message: String,

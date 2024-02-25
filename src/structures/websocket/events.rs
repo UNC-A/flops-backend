@@ -12,7 +12,6 @@ pub enum EventEnum {
     MessageSend {
         id: String,
         message: String,
-        timestamp: u128,
     },
     MessageEdit {
         id: String,
