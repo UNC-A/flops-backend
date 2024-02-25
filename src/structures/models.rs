@@ -1,6 +1,6 @@
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
-
+/// Database representation for Channel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Channel {
     #[serde(rename = "_id")]
@@ -11,6 +11,7 @@ pub struct Channel {
     #[serde(skip_serializing_if = "IndexSet::is_empty", default)]
     pub members: IndexSet<String>,
 }
+/// Database representation for User.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct User {
     #[serde(rename = "_id")]
@@ -28,13 +29,14 @@ impl From<User> for UserSafe {
         }
     }
 }
+/// Partial Class of User; omits sensitive information.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UserSafe {
     #[serde(rename = "_id")]
     pub id: String,
     pub username: String,
 }
-
+/// Database representation of Message.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Message {
     #[serde(rename = "_id")]

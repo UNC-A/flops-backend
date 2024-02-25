@@ -1,11 +1,11 @@
-use crate::structures::is_none_bool;
 use crate::structures::{
-    is_none,
+    is_none_bool,
     models::{Channel, UserSafe},
 };
 use axum::extract::ws::Message;
 use serde::Serialize;
-
+/// # Event.
+/// Event data is sent from Server to Client.
 #[derive(Serialize, Debug, Clone, Default)]
 #[serde(tag = "action")]
 pub enum EventEnum {
@@ -40,7 +40,7 @@ pub enum EventEnum {
         user: String,
     },
     Pong {
-        #[serde(skip_serializing_if = "is_none")]
+        #[serde(skip_serializing_if = "Option::is_none")]
         data: Option<usize>,
     },
     #[default]

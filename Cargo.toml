@@ -7,12 +7,14 @@ authors = ["ToastXC <contact@toastxc.xyz>"]
 
 [dependencies]
 tokio = { version = "1.36.0", features = ["full"] }
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
 futures-util = "0.3.30"
 dotenv = "0.15.0"
-anyhow = "1.0.79"
-rand = "0.8.5"
+anyhow = "1.0.80"
+rand = "0.9.0-alpha.0"
 mongodb = "2.8.1"
 axum = { version = "0.7.4", features = ["ws"] }
 indexmap = { version = "2.2.3", features = ["serde"] }
+
+

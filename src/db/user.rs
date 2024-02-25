@@ -4,7 +4,7 @@ use futures_util::future::join_all;
 use indexmap::IndexSet;
 use mongodb::bson::doc;
 impl Data {
-    /// get a user based on id
+    /// Get a User based on User ID.
     async fn get_user(&self, user_id: impl Into<String>) -> crate::Result<Option<User>> {
         Ok(self
             .users
@@ -12,8 +12,8 @@ impl Data {
             .await?)
     }
 
-    /// get many users based on a set of user IDs
-    /// todo a non brute force method is preferred
+    /// Get many users based on a set of User IDs.
+    // todo a non brute force method is preferred
     pub async fn get_user_many(&self, users: IndexSet<String>) -> Vec<crate::Result<Option<User>>> {
         let mut user_list = Vec::new();
         for user in users {

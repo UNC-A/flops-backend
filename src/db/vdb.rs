@@ -2,11 +2,16 @@ use crate::structures::websocket::events::EventEnum;
 use indexmap::IndexSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+/// # State
+/// The Volatile Database, data is stored in memory and very quickly read / written to.
+/// This DB stores pending events and online users.
 #[derive(Debug, Default, Clone)]
 pub struct State {
     pub pending_messages: Arc<RwLock<Vec<EventMessage>>>,
     pub online_users: Arc<RwLock<IndexSet<String>>>,
 }
+/// ## Event Message
+/// Contains a list of applicable targets, the original author and the message.
 #[derive(Debug, Default, Clone)]
 pub struct EventMessage {
     pub author: String,
@@ -14,16 +19,17 @@ pub struct EventMessage {
     pub item: EventEnum,
 }
 
-/// abstract methods
+/// # Abstract Methods.
+/// Intended for use within websocket system.
 impl State {
-    /// two part function: update database that the user is online, and reject simultaneous account
-    /// connections
-    /// if false, user is already present
+    /// Two part function: update database that the user is online, and reject simultaneous account
+    /// connections.
+    /// If false, user is already present.
     pub async fn user_online(&self, user_id: impl Into<String>) -> bool {
         self.remove_dead_messages().await;
         self.online_users.write().await.insert(user_id.into())
     }
-    /// set users as offline
+    /// Set a User as offline
     pub async fn user_offline(&self, user_id: impl Into<String>) {
         let user_id = user_id.into();
         self.online_users.write().await.shift_remove(&user_id);
@@ -31,15 +37,19 @@ impl State {
         self.remove_dead_messages().await;
     }
 
-    /// get all messages applicable for a user
+    /// Get all messages applicable for a user based on User ID.
+    /// Removes User ID from 'target' so that messages are not double-sent.
+    /// Removes 'dead' messages (those without any targets).
     pub async fn get_message(&self, user_id: impl Into<String>) -> Option<Vec<EventMessage>> {
         let user_id = user_id.into();
-        // if user offline, return
+        /// If user offline: return
+        /// This condition should be impossible
         if self.online_users.read().await.get(&user_id).is_none() {
-            self.user_remove_message(&user_id).await;
-            return None;
+            //self.user_remove_message(&user_id).await;
+            //return None;
+            unreachable!()
         };
-        // get all items applicable to user
+        /// Get all items applicable to the User.
         let item = self
             .pending_messages
             .read()
@@ -49,18 +59,17 @@ impl State {
             .filter(|a| a.targets.get(&user_id).is_some())
             .collect::<Vec<EventMessage>>();
 
-        // if no items, return none
+        /// if there are  no items: return None.
         if item.is_empty() {
             return None;
         };
-        // since all messages have been forwarded, delete old from db
-        // copy to avoid thread locks
+        /// Since all messages have been forwarded to User: remove User from targets.
         self.user_remove_message(user_id).await;
         self.remove_dead_messages().await;
         Some(item)
     }
 
-    /// safely adds a message to the top of the message queue
+    /// Safely adds a message to the top of the message queue.
     pub async fn message_add_vdb(&self, mut event_message: EventMessage) {
         let users = &self.online_users.read().await;
 
@@ -74,15 +83,17 @@ impl State {
         };
     }
 }
-/// internal methods
+/// # Internal Methods.
+/// NOT intended for use outside vdb internal processes.
 impl State {
-    /// removes all messages that do not have targets
+    /// Removes all messages that do not have targets.
     async fn remove_dead_messages(&self) {
         let data = self.pending_messages.read().await.clone();
         *self.pending_messages.write().await =
             data.into_iter().filter(|a| !a.targets.is_empty()).collect();
     }
-    /// removes user_id from all references in message queue
+    /// Removes User ID from all references in message queue.
+    /// Intended for taking a User offline, or marking all messages as already sent.
     async fn user_remove_message(&self, user_id: impl Into<String>) {
         let user_id = user_id.into();
         let data = self

@@ -4,7 +4,7 @@ use crate::structures::models::Channel;
 use futures_util::StreamExt;
 use mongodb::bson::doc;
 impl Data {
-    /// get one channel based on an ID
+    /// Get one channel based on a channel ID.
     pub async fn channel_get_one(
         &self,
         channel_id: impl Into<String>,
@@ -14,7 +14,8 @@ impl Data {
             .find_one(doc! ( "_id": channel_id.into()), None)
             .await?)
     }
-    /// get one channel based on id, will return None if user cannot access
+    /// Get one Channel based on Channel ID.
+    /// Returns nothing if inaccessible.
     pub async fn channel_get_one_accessible(
         &self,
         user_id: impl Into<String>,
@@ -28,7 +29,8 @@ impl Data {
             )
             .await?)
     }
-    /// get all channels in which a user is a member in
+    /// Get all channels accessible to user.
+    /// Takes a User ID.
     pub async fn channel_get_many_accessible(
         &self,
         user_id: impl Into<String>,

@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+/// # Action.
+/// Action data is sent from Client to Server.
 #[derive(Deserialize)]
 #[serde(tag = "action")]
 pub enum ActionEnum {

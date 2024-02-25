@@ -29,6 +29,8 @@ use futures_util::{
 use std::{env, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 
+/// # Main.
+/// Initializes MongoDB, VDB, TCP, Websocket and other services.
 #[tokio::main]
 async fn main() {
     println!("INIT: env");
@@ -49,19 +51,25 @@ async fn main() {
     axum::serve(listener, app(db)).await.unwrap();
 }
 
+/// # App.
+/// Mounts Websocket and Availability routes to web server.
+
 fn app(db: Data) -> Router {
     Router::new()
-        .route("/ws/", get(main_session_handle).layer(Extension(db)))
-        .route("/available/", get(handler_running))
+        .route("/ws/", get(websocket).layer(Extension(db)))
+        .route("/available/", get(available))
 }
-
-async fn handler_running() -> impl IntoResponse {
+/// ## /available/
+/// This route is used by external services to check if the server is online.
+/// Simply put: Websocket cannot be easily cURLed.
+async fn available() -> impl IntoResponse {
     (StatusCode::NO_CONTENT, "")
 }
 
-/// provides a handler for the upgraded websocket session, once session authentication is properly handled
-/// it starts the 'events' and 'actions' handler to manage incoming and outgoing connections
-async fn main_session_handle(
+/// ## /ws/
+/// This route contains the primary websocket server.
+/// A valid session token is required for connecting to the server.
+async fn websocket(
     ws: WebSocketUpgrade,
     RawQuery(query): RawQuery,
     Extension(db): Extension<Data>,
@@ -101,7 +109,7 @@ async fn main_session_handle(
         );
     })
 }
-// todo very very bugged
+// todo very very bugged | this should be made into a client side service
 // async fn action_egg(db: Data) {
 //     let author = "dsfgdsufygsduygds".to_string();
 //     loop {
@@ -128,9 +136,12 @@ async fn main_session_handle(
 //     }
 // }
 
-/// # action handler
-/// this function reads incoming requests, depending on applicability and actions it adds events
-/// to the memory database, this function is also responsible for sending establish
+/// # Action Handler
+/// This function reads incoming requests, if applicable and valid the messages are added to the
+/// volatile database and MongoDB.
+///
+/// Note: if all applicable clients are offline the message will NOT be sent to the volatile DB,
+/// just MongoDB.
 pub async fn action_handler(
     db: Data,
     user: User,
@@ -229,10 +240,10 @@ pub async fn action_handler(
     db.state.user_offline(&user.id).await;
 }
 
-/// # event_handler
-/// this function reads from the memory database for pending events, and after a certain time interval
-/// it sends all pending events to the specified user
-/// the performance for this model at scale is unknown, and may be migrated to redis or mongo
+/// # Event Handler.
+/// This function reads from the volatile database for pending events, after a certain time interval
+/// it sends all pending events to the specified user.
+/// The performance for this model at scale is unknown, and may be migrated to redis at a later date.
 pub async fn events_handler(
     db: Data,
     user_id: String,

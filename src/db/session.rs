@@ -6,8 +6,8 @@ use indexmap::IndexSet;
 use mongodb::bson::doc;
 
 impl Data {
-    /// authenticate takes the raw header data and finds the token
-    /// additionally it will add connection ID to the database
+    /// Authenticate takes the raw header data and finds the token.
+    /// Deserializes session token and authenticates the User.
     pub async fn authenticate(&self, session: Option<String>) -> crate::Result<Option<User>> {
         let Some(session) = session else {
             return Ok(None);
@@ -28,7 +28,8 @@ impl Data {
         Ok(Some(self.users.find_one(doc, None).await?.unwrap()))
     }
 
-    /// provides history and context for websocket client
+    /// Provides history and context for websocket client
+    // todo getting messages may be inefficient
     pub async fn establish(
         &self,
         user_id: impl Into<String>,
