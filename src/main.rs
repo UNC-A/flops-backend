@@ -189,7 +189,7 @@ pub async fn action_handler(
                     author: user.id.clone(),
                     targets: channel.members,
                     item: EventEnum::TypeStatus {
-                        typing: typing.unwrap_or_default(),
+                        typing,
                         channel: channel.id,
                         user: user.id.clone(),
                     },
@@ -232,8 +232,9 @@ pub async fn events_handler(
             // update with new id list
             let mut new_targets = message.targets;
             new_targets.shift_remove(&user_id);
-            db.state.pending_messages.write().await[index - 1].targets = new_targets;
-
+            if index > &0 {
+                db.state.pending_messages.write().await[index - 1].targets = new_targets;
+            };
             // send message
             let _ = events.write().await.send(message.item.into()).await;
         }
