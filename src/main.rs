@@ -1,8 +1,10 @@
 pub mod db;
 pub mod structures;
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
+use crate::db::vdb::EventMessage;
+use crate::db::Data;
 use crate::{
-    db::{Data, EventMessage},
     structures::models::User,
     structures::{
         rand,
