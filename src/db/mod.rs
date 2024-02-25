@@ -38,7 +38,7 @@ impl Data {
         input
             .into_iter()
             .flat_map(|a| match a {
-                Ok(Some(a)) => Some(a.into()),
+                Ok(Some(a)) => Some(a),
                 _ => None,
             })
             .collect()
@@ -51,7 +51,7 @@ impl Data {
             .into_iter()
             .flatten()
             .fold(Vec::new(), |mut vec, vec_new| {
-                vec.extend(vec_new.into_iter());
+                vec.extend(vec_new);
                 vec
             })
     }

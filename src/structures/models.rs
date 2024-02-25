@@ -1,6 +1,5 @@
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
-use crate::structures::websocket::events::EventEnum;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Channel {
