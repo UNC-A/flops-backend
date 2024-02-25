@@ -12,6 +12,7 @@ pub enum EventEnum {
     Establish {
         channels: Vec<Channel>,
         users: Vec<UserSafe>,
+        messages: Vec<crate::structures::models::Message>,
         you: String,
         version: String,
     },
@@ -44,6 +45,25 @@ pub enum EventEnum {
     },
     #[default]
     InvalidEvent,
+}
+
+impl EventEnum {
+    pub fn message_send(self) -> Option<crate::structures::models::Message> {
+        match self {
+            EventEnum::MessageSend {
+                id,
+                author,
+                content,
+                channel,
+            } => Some(crate::structures::models::Message {
+                id,
+                author,
+                content,
+                channel,
+            }),
+            _ => None,
+        }
+    }
 }
 impl From<EventEnum> for Message {
     fn from(value: EventEnum) -> Self {

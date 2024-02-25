@@ -31,6 +31,9 @@ macro_rules! collect {
 }
 
 impl Data {
+    /// takes a vector of results of options, returns a vec
+    /// IN: Vec<crate::Result<Option<T>>>
+    /// OUT: Vec<T>
     pub fn flatten<T>(input: Vec<crate::Result<Option<T>>>) -> Vec<T> {
         input
             .into_iter()
@@ -39,6 +42,18 @@ impl Data {
                 _ => None,
             })
             .collect()
+    }
+    /// takes a vector of results of vectors, returns a vector
+    /// IN: Vec<crate::Result<Vec<T>>>
+    /// OUT: Vec<T>
+    pub fn flatten_vec<T>(input: Vec<crate::Result<Vec<T>>>) -> Vec<T> {
+        input
+            .into_iter()
+            .flatten()
+            .fold(Vec::new(), |mut vec, vec_new| {
+                vec.extend(vec_new.into_iter());
+                vec
+            })
     }
     pub async fn inject_content(&mut self) -> crate::Result<Self> {
         self.delete_all().await?;

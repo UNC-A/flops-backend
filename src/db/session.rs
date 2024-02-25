@@ -1,6 +1,6 @@
 use crate::collect;
 use crate::db::Data;
-use crate::structures::models::{Channel, User, UserSafe};
+use crate::structures::models::{Channel, Message, User, UserSafe};
 use futures_util::StreamExt;
 use indexmap::IndexSet;
 use mongodb::bson::doc;
@@ -32,7 +32,7 @@ impl Data {
     pub async fn establish(
         &self,
         user_id: impl Into<String>,
-    ) -> crate::Result<(Vec<Channel>, Vec<UserSafe>)> {
+    ) -> crate::Result<(Vec<Channel>, Vec<UserSafe>, Vec<Message>)> {
         let user_id = user_id.into();
 
         let channels: Vec<Channel> =
@@ -43,6 +43,7 @@ impl Data {
             .flat_map(|channel| channel.members.iter())
             .cloned()
             .collect();
+        let channel_ids: IndexSet<String> = channels.iter().map(|a| a.id.clone()).collect();
 
         let users: Vec<UserSafe> = self
             .get_user_many(member_ids)
@@ -54,6 +55,8 @@ impl Data {
             })
             .collect();
 
-        Ok((channels, users))
+        let messages = self.message_get_many_channel_unsafe(channel_ids).await;
+
+        Ok((channels, users, messages))
     }
 }

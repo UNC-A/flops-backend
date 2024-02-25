@@ -137,7 +137,7 @@ pub async fn action_handler(
     events: Arc<RwLock<SplitSink<WebSocket, Message>>>,
     actions: Arc<RwLock<SplitStream<WebSocket>>>,
 ) {
-    let (channels, users) = db.establish(&user.id).await.unwrap();
+    let (channels, users, messages) = db.establish(&user.id).await.unwrap();
     let _ = events
         .write()
         .await
@@ -145,6 +145,7 @@ pub async fn action_handler(
             EventEnum::Establish {
                 channels,
                 users,
+                messages,
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 you: user.id.clone(),
             }
@@ -187,17 +188,21 @@ pub async fn action_handler(
                     continue;
                 };
                 channel.members.shift_remove(&user.id);
+                let item = EventEnum::MessageSend {
+                    id: rand(),
+                    author: user.id.clone(),
+                    content,
+                    channel: channel.id,
+                };
+
+                db.message_insert(item.clone().message_send().unwrap())
+                    .await
+                    .unwrap();
                 db.state
                     .message_add_vdb(EventMessage {
                         author: user.id.clone(),
                         targets: channel.members,
-                        item: EventEnum::MessageSend {
-                            id: rand(),
-                            author: user.id.clone(),
-                            content,
-
-                            channel: channel.id,
-                        },
+                        item,
                     })
                     .await;
             }
