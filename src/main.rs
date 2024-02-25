@@ -179,7 +179,8 @@ pub async fn action_handler(
             }
             ActionEnum::MessageSend { content, channel } => {
                 // integrity check
-                let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
+                let Ok(Some(mut channel)) = db.channel_get_one_accessible(&user.id, &channel).await
+                else {
                     continue;
                 };
                 if content.clone().replace([' ', '\n'], "").is_empty() {
@@ -202,7 +203,8 @@ pub async fn action_handler(
             }
 
             ActionEnum::TypeStatus { typing, channel } => {
-                let Ok(Some(mut channel)) = db.get_channel_one(&user.id, &channel).await else {
+                let Ok(Some(mut channel)) = db.channel_get_one_accessible(&user.id, &channel).await
+                else {
                     continue;
                 };
                 channel.members.shift_remove(&user.id);

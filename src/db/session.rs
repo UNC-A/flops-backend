@@ -28,6 +28,7 @@ impl Data {
         Ok(Some(self.users.find_one(doc, None).await?.unwrap()))
     }
 
+    /// provides history and context for websocket client
     pub async fn establish(
         &self,
         user_id: impl Into<String>,

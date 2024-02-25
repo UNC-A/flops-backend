@@ -31,6 +31,15 @@ macro_rules! collect {
 }
 
 impl Data {
+    pub fn flatten<T>(input: Vec<crate::Result<Option<T>>>) -> Vec<T> {
+        input
+            .into_iter()
+            .flat_map(|a| match a {
+                Ok(Some(a)) => Some(a.into()),
+                _ => None,
+            })
+            .collect()
+    }
     pub async fn inject_content(&mut self) -> crate::Result<Self> {
         self.delete_all().await?;
         self.users
