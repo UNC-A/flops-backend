@@ -1,6 +1,3 @@
-path=""
-# ensure absolute dir
-cd "$path" || exit
 # update software
 git pull
 cargo update
