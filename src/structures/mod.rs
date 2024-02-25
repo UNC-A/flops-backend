@@ -19,3 +19,8 @@ pub fn is_false(i: &bool) -> bool {
 pub fn is_none<T>(i: &Option<T>) -> bool {
     i.is_none()
 }
+/// # is_none_bool
+/// a simple check used by serde (is only false if Some(true)
+pub fn is_none_bool(i: &Option<bool>) -> bool {
+    !matches!(i, Some(true))
+}

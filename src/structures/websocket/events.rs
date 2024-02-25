@@ -1,11 +1,12 @@
+use crate::structures::is_none_bool;
 use crate::structures::{
-    is_false, is_none,
+    is_none,
     models::{Channel, UserSafe},
 };
 use axum::extract::ws::Message;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default)]
 #[serde(tag = "action")]
 pub enum EventEnum {
     Establish {
@@ -32,8 +33,8 @@ pub enum EventEnum {
     //     id: String,
     // },
     TypeStatus {
-        #[serde(skip_serializing_if = "is_false")]
-        typing: bool,
+        #[serde(skip_serializing_if = "is_none_bool")]
+        typing: Option<bool>,
         channel: String,
         user: String,
     },
