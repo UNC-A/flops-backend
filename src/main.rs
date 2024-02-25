@@ -71,7 +71,7 @@ async fn main_session_handle(
             Arc::new(RwLock::new(actions)),
         );
 
-        let Ok(Some((user, connection))) = db.authenticate(query).await else {
+        let Ok(Some(user)) = db.authenticate(query).await else {
             let _ = events
                 .write()
                 .await
@@ -82,31 +82,49 @@ async fn main_session_handle(
             println!("early return due to invalid token");
             return;
         };
+        if !db.state.user_online(&user.id).await {
+            let _ = events
+                .write()
+                .await
+                .send(Message::Text(format!(
+                    "{} ({}) is already online, simultaneous connections are not allowed",
+                    &user.username, &user.id
+                )))
+                .await;
+            return;
+        }
         tokio::join!(
             events_handler(db.clone(), user.id.clone(), events.clone()),
-            action_handler(db.clone(), user, events, actions, connection),
-            action_egg(db)
+            action_handler(db.clone(), user.clone(), events, actions),
         );
     })
 }
-
-async fn action_egg(db: Data) {
-    let author = "dsfgdsufygsduygds".to_string();
-    loop {
-        tokio::time::sleep(Duration::from_secs(5)).await;
-        db.state.pending_messages.write().await.push(EventMessage {
-            // user one
-            author: author.clone(), // user two
-            targets: ["fsdgyfildsfdsh".to_string()].into(),
-            item: EventEnum::MessageSend {
-                id: rand(),
-                author: author.clone(),
-                content: "egg".to_string(),
-                channel: "gfuoghlsduifhuguda".to_string(),
-            },
-        })
-    }
-}
+// todo very very bugged
+// async fn action_egg(db: Data) {
+//     let author = "dsfgdsufygsduygds".to_string();
+//     loop {
+//         tokio::time::sleep(Duration::from_secs(5)).await;
+//         println!(
+//             "\n\n\n{:?}\n{:?}",
+//             db.state.online_users.read().await,
+//             db.state.pending_messages.read().await
+//         );
+//
+//         db.state
+//             .message_add_vdb(EventMessage {
+//                 // user one
+//                 author: author.clone(), // user two
+//                 targets: ["fsdgyfildsfdsh".to_string()].into(),
+//                 item: EventEnum::MessageSend {
+//                     id: rand(),
+//                     author: author.clone(),
+//                     content: "egg".to_string(),
+//                     channel: "gfuoghlsduifhuguda".to_string(),
+//                 },
+//             })
+//             .await;
+//     }
+// }
 
 /// # action handler
 /// this function reads incoming requests, depending on applicability and actions it adds events
@@ -116,7 +134,6 @@ pub async fn action_handler(
     user: User,
     events: Arc<RwLock<SplitSink<WebSocket, Message>>>,
     actions: Arc<RwLock<SplitStream<WebSocket>>>,
-    connection: String,
 ) {
     let (channels, users) = db.establish(&user.id).await.unwrap();
     let _ = events
@@ -167,17 +184,19 @@ pub async fn action_handler(
                     continue;
                 };
                 channel.members.shift_remove(&user.id);
-                db.state.pending_messages.write().await.push(EventMessage {
-                    author: user.id.clone(),
-                    targets: channel.members,
-                    item: EventEnum::MessageSend {
-                        id: rand(),
+                db.state
+                    .message_add_vdb(EventMessage {
                         author: user.id.clone(),
-                        content,
+                        targets: channel.members,
+                        item: EventEnum::MessageSend {
+                            id: rand(),
+                            author: user.id.clone(),
+                            content,
 
-                        channel: channel.id,
-                    },
-                });
+                            channel: channel.id,
+                        },
+                    })
+                    .await;
             }
 
             ActionEnum::TypeStatus { typing, channel } => {
@@ -198,7 +217,7 @@ pub async fn action_handler(
         }
     }
     // assumed disconnected
-    let _ = db.logout(user.id, connection).await;
+    db.state.user_offline(&user.id).await;
 }
 
 /// # event_handler
@@ -216,27 +235,15 @@ pub async fn events_handler(
         .unwrap_or(1);
     loop {
         tokio::time::sleep(Duration::from_millis(delay)).await;
-        let index = &db.state.pending_messages.read().await.len();
-        let message = db.state.pending_messages.read().await.last().cloned();
-        if let Some(message) = message {
-            if message.targets.is_empty() {
-                // verify that message is actually empty
-                db.state.pending_messages.write().await.pop();
-                continue;
-            };
-            if !message.targets.contains(&user_id) {
-                continue;
-            };
-            // assumed message is for author
-
-            // update with new id list
-            let mut new_targets = message.targets;
-            new_targets.shift_remove(&user_id);
-            if index > &0 {
-                db.state.pending_messages.write().await[index - 1].targets = new_targets;
-            };
-            // send message
-            let _ = events.write().await.send(message.item.into()).await;
+        if db.state.online_users.read().await.get(&user_id).is_none() {
+            return;
+        };
+        let messages = db.state.get_message(&user_id).await;
+        let Some(messages) = messages else {
+            continue;
+        };
+        for item in messages {
+            let _ = events.write().await.send(item.item.into()).await;
         }
     }
 }
