@@ -16,7 +16,7 @@ macro_rules! collect {
             .await
     }};
 }
-
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 #[derive(Debug, Clone)]
 pub struct Data {
     pub channels: Arc<Collection<Channel>>,
@@ -124,8 +124,9 @@ pub struct EventMessage {
     pub item: EventEnum,
 }
 
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
+
 impl Data {
+    
     pub async fn start(test: bool) -> Result<Self> {
         let db = Client::with_uri_str(&env::var("MONGO_URI")?)
             .await?
@@ -231,24 +232,7 @@ impl Data {
         // assumed that session is valid
         Ok(Some(self.users.find_one(doc, None).await?.unwrap()))
     }
-    pub async fn logout(
-        &self,
-        user_id: impl Into<String>,
-        connection: impl Into<String>,
-    ) -> Result<()> {
-        self.users
-            .update_one(
-                doc!("_id": user_id.into()),
-                doc! {
-                    "$pop": {
-                        "connections": connection.into(),
-                    }
-                },
-                None,
-            )
-            .await?;
-        Ok(())
-    }
+
 
     pub async fn get_channel_one(
         &self,
