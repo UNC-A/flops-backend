@@ -45,14 +45,14 @@ impl State {
     /// Removes 'dead' messages (those without any targets).
     pub async fn get_message(&self, user_id: impl Into<String>) -> Option<Vec<EventMessage>> {
         let user_id = user_id.into();
-        /// If user offline: return
-        /// This condition should be impossible
+        // If user offline: return
+        // This condition should be impossible
         if self.online_users.read().await.get(&user_id).is_none() {
             //self.user_remove_message(&user_id).await;
             //return None;
             unreachable!()
         };
-        /// Get all items applicable to the User.
+        // Get all items applicable to the User.
         let item = self
             .pending_messages
             .read()
@@ -62,11 +62,11 @@ impl State {
             .filter(|a| a.targets.get(&user_id).is_some())
             .collect::<Vec<EventMessage>>();
 
-        /// if there are  no items: return None.
+        // if there are  no items: return None.
         if item.is_empty() {
             return None;
         };
-        /// Since all messages have been forwarded to User: remove User from targets.
+        // Since all messages have been forwarded to User: remove User from targets.
         self.user_remove_message(user_id).await;
         self.remove_dead_messages().await;
         Some(item)
