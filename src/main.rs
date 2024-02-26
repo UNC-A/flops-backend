@@ -2,11 +2,10 @@ pub mod db;
 pub mod structures;
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
-use crate::db::vdb::EventMessage;
-use crate::db::Data;
 use crate::{
-    structures::models::User,
+    db::{vdb::EventMessage, Data},
     structures::{
+        models::User,
         rand,
         websocket::{actions::ActionEnum, events::EventEnum},
     },
@@ -33,8 +32,8 @@ use tokio::sync::RwLock;
 /// Initializes MongoDB, VDB, TCP, Websocket and other services.
 #[tokio::main]
 async fn main() {
-    println!("INIT: env");
     dotenv().ok();
+    println!("INIT: env");
     let db = Data::start(false)
         .await
         .expect("failed to load database")
@@ -230,7 +229,7 @@ pub async fn action_handler(
                     item: EventEnum::TypeStatus {
                         typing,
                         channel: channel.id,
-                        user: user.id.clone(),
+                        author: user.id.clone(),
                     },
                 });
             }

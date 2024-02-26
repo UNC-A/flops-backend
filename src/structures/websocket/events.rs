@@ -37,7 +37,7 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "is_none_bool")]
         typing: Option<bool>,
         channel: String,
-        user: String,
+        author: String,
     },
     Pong {
         #[serde(skip_serializing_if = "Option::is_none")]
