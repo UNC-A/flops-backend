@@ -1,5 +1,6 @@
 use crate::structures::websocket::events::EventEnum;
 use indexmap::IndexSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 /// # State
@@ -9,6 +10,8 @@ use tokio::sync::RwLock;
 pub struct State {
     pub pending_messages: Arc<RwLock<Vec<EventMessage>>>,
     pub online_users: Arc<RwLock<IndexSet<String>>>,
+    /// User ID and channel ID
+    pub type_status: Arc<RwLock<HashMap<String, String>>>,
 }
 /// ## Event Message
 /// Contains a list of applicable targets, the original author and the message.
@@ -35,8 +38,8 @@ impl State {
         self.online_users.write().await.shift_remove(&user_id);
         self.user_remove_message(&user_id).await;
         self.remove_dead_messages().await;
+        self.type_status_remove(user_id).await;
     }
-
     /// Get all messages applicable for a user based on User ID.
     /// Removes User ID from 'target' so that messages are not double-sent.
     /// Removes 'dead' messages (those without any targets).
@@ -82,6 +85,24 @@ impl State {
             self.pending_messages.write().await.push(event_message);
         };
     }
+    pub async fn type_status_add(&self, user_id: impl Into<String>, channel_id: impl Into<String>) {
+        self.type_status
+            .write()
+            .await
+            .insert(user_id.into(), channel_id.into());
+    }
+    /// If there is no current TypeStatus by User: return None and insert new TypeStatus.
+    /// If there is a current one: replace it and send that existing Channel as Some.
+    pub async fn type_status_replace(
+        &self,
+        user_id: impl Into<String>,
+        channel_id: impl Into<String>,
+    ) -> Option<String> {
+        let user_id = user_id.into();
+        let data = self.type_status_get(&user_id).await;
+        self.type_status_add(&user_id, channel_id).await;
+        data
+    }
 }
 /// # Internal Methods.
 /// NOT intended for use outside vdb internal processes.
@@ -108,5 +129,12 @@ impl State {
             })
             .collect();
         *self.pending_messages.write().await = data;
+    }
+    async fn type_status_remove(&self, user_id: impl Into<String>) {
+        self.type_status.write().await.remove(&user_id.into());
+    }
+
+    async fn type_status_get(&self, user_id: impl Into<String>) -> Option<String> {
+        self.type_status.read().await.get(&user_id.into()).cloned()
     }
 }

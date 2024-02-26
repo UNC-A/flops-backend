@@ -262,6 +262,40 @@ pub async fn events_handler(
             continue;
         };
         for item in messages {
+            // this code needs a bit of explanation
+            // a user can only be typing in ONE channel at once, so if the server receives
+            // type status it checks if there is an old one
+            // if there is an old one, the old channel has its type status update
+            //
+            // NOTE: if no one is online in the other channel that a type status is sent to, this
+            // will NOT work
+            // however, this is a minor issue
+            if let EventMessage {
+                item:
+                    EventEnum::TypeStatus {
+                        channel, author, ..
+                    },
+                ..
+            } = &item
+            {
+                if let Some(old_channel) = db.state.type_status_replace(&user_id, channel).await {
+                    println!("condition true");
+                    let _ = events
+                        .write()
+                        .await
+                        .send(
+                            EventEnum::TypeStatus {
+                                typing: None,
+                                channel: old_channel.to_string(),
+                                author: author.to_string(),
+                            }
+                            .into(),
+                        )
+                        .await;
+                } else {
+                    db.state.type_status_add(&user_id, channel).await;
+                }
+            }
             let _ = events.write().await.send(item.item.into()).await;
         }
     }
