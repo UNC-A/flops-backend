@@ -1,12 +1,13 @@
+#[cfg(feature = "server")]
+use axum::extract::ws::Message;
 use crate::structures::{
     is_none_bool,
     models::{Channel, UserSafe},
 };
-use axum::extract::ws::Message;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 /// # Event.
 /// Event data is sent from Server to Client.
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Debug, Clone, Default, Deserialize)]
 #[serde(tag = "action")]
 pub enum EventEnum {
     Establish {
@@ -65,6 +66,7 @@ impl EventEnum {
         }
     }
 }
+#[cfg(feature = "server")]
 impl From<EventEnum> for Message {
     fn from(value: EventEnum) -> Self {
         Message::from(serde_json::to_string(&value).unwrap())

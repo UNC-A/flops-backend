@@ -1,6 +1,10 @@
+#[cfg(feature = "server")]
 mod db;
+#[cfg(feature = "server")]
 mod structures;
+#[cfg(feature = "server")]
 type Result<T> = std::result::Result<T, anyhow::Error>;
+#[cfg(feature = "server")]
 use crate::{
     db::{vdb::EventMessage, Data},
     structures::{
@@ -9,6 +13,7 @@ use crate::{
         websocket::{actions::ActionEnum, events::EventEnum},
     },
 };
+#[cfg(feature = "server")]
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -19,14 +24,18 @@ use axum::{
     routing::get,
     Extension, Router,
 };
+#[cfg(feature = "server")]
 use dotenv::dotenv;
+#[cfg(feature = "server")]
 use futures_util::{
     stream::{SplitSink, SplitStream},
     SinkExt, StreamExt,
 };
+#[cfg(feature = "server")]
 use std::{env, sync::Arc, time::Duration};
+#[cfg(feature = "server")]
 use tokio::sync::RwLock;
-
+#[cfg(feature = "server")]
 /// # Main.
 /// Initializes MongoDB, VDB, TCP, Websocket and other services.
 #[tokio::main]
@@ -48,7 +57,7 @@ async fn main() {
     println!("INIT: bound to {}", listener.local_addr().unwrap());
     axum::serve(listener, app(db)).await.unwrap();
 }
-
+#[cfg(feature = "server")]
 /// # App.
 /// Mounts Websocket and Availability routes to web server.
 
@@ -57,13 +66,14 @@ fn app(db: Data) -> Router {
         .route("/ws/", get(websocket).layer(Extension(db)))
         .route("/available/", get(available))
 }
+#[cfg(feature = "server")]
 /// ## /available/
 /// This route is used by external services to check if the server is online.
 /// Simply put: Websocket cannot be easily cURLed.
 async fn available() -> impl IntoResponse {
     (StatusCode::NO_CONTENT, "")
 }
-
+#[cfg(feature = "server")]
 /// ## /ws/
 /// This route contains the primary websocket server.
 /// A valid session token is required for connecting to the server.
@@ -133,7 +143,7 @@ async fn websocket(
 //             .await;
 //     }
 // }
-
+#[cfg(feature = "server")]
 /// # Action Handler
 /// This function reads incoming requests, if applicable and valid the messages are added to the
 /// volatile database and MongoDB.
@@ -237,7 +247,7 @@ pub async fn action_handler(
     // assumed disconnected
     db.state.user_offline(&user.id).await;
 }
-
+#[cfg(feature = "server")]
 /// # Event Handler.
 /// This function reads from the volatile database for pending events, after a certain time interval
 /// it sends all pending events to the specified user.
@@ -299,3 +309,6 @@ pub async fn events_handler(
         }
     }
 }
+
+#[cfg(not(feature = "server"))]
+fn main() {}

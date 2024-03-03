@@ -1,8 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// # Action.
 /// Action data is sent from Client to Server.
-#[derive(Deserialize)]
+#[derive(Serialize, Debug, Clone, Default, Deserialize)]
 #[serde(tag = "action")]
 pub enum ActionEnum {
     Establish,
