@@ -1,5 +1,5 @@
 [package]
-name = "backend"
+name = "flops-backend"
 version = "0.1.1"
 edition = "2021"
 authors = ["ToastXC <contact@toastxc.xyz>"]

@@ -1,7 +1,6 @@
-pub mod db;
-pub mod structures;
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
-
+mod db;
+mod structures;
+type Result<T> = std::result::Result<T, anyhow::Error>;
 use crate::{
     db::{vdb::EventMessage, Data},
     structures::{
