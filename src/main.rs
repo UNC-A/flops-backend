@@ -44,18 +44,27 @@ async fn main() {
     println!("INIT: env");
     let db = Data::start(false)
         .await
-        .expect("failed to load database")
+        .unwrap_or_else(|er| {
+            panic!(
+                "failed to load database, provided string: {:?}\
+                error: {}",
+                env::var("MONGO_URI"),
+                er,
+            )
+        })
         .inject_content()
         .await
         .expect("failed to initialise fake data");
     println!("INIT: database");
 
-    println!("INIT: TCP");
+    println!("INIT: TCP/IP");
     let listener = tokio::net::TcpListener::bind(env::var("BIND").unwrap())
         .await
         .expect("failed to bind to local port");
     println!("INIT: bound to {}", listener.local_addr().unwrap());
+    println!("INIT: startup complete");
     axum::serve(listener, app(db)).await.unwrap();
+    println!("bye bye!")
 }
 #[cfg(feature = "server")]
 /// # App.

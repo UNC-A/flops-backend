@@ -1,0 +1,33 @@
+version: "3.8"  # Specify the Docker Compose version
+networks:
+  flops:
+
+services:
+
+  db:
+    image: mongo
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+    volumes:
+      - ./db:/data
+    env_file:
+      - .env
+  #  restart: always
+    networks:
+      - flops
+
+
+  ws:
+    build: .  # Build the image from the current directory (modify if Dockerfile is elsewhere)
+    ports:
+      - "${PORT}:${PORT}"
+    #    volumes:
+    #      - ./:/usr/src/app:  # Mount your source code directory into the container
+    command: ["cargo", "run", "-r"]  # Run the Rust application using cargo
+    env_file:
+      - .env
+    depends_on:
+      - db
+    #  restart: always
+    networks:
+      - flops
