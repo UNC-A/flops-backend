@@ -7,7 +7,7 @@ use crate::structures::{
 use serde::{Deserialize, Serialize};
 /// # Event.
 /// Event data is sent from Server to Client.
-#[derive(Serialize, Debug, Clone, Default, Deserialize)]
+#[derive(Serialize, Debug, Clone, Deserialize)]
 #[serde(tag = "action")]
 pub enum EventEnum {
     Establish {
@@ -44,8 +44,7 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "Option::is_none")]
         data: Option<usize>,
     },
-    #[default]
-    InvalidEvent,
+
 }
 
 impl EventEnum {

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// # Action.
 /// Action data is sent from Client to Server.
-#[derive(Serialize, Debug, Clone, Default, Deserialize)]
+#[derive(Serialize, Debug, Clone, Deserialize)]
 #[serde(tag = "action")]
 pub enum ActionEnum {
     Establish,
@@ -29,4 +29,5 @@ pub enum ActionEnum {
         typing: Option<bool>,
         channel: String,
     },
+
 }
