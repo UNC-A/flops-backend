@@ -1,9 +1,9 @@
-#[cfg(feature = "server")]
-use axum::extract::ws::Message;
 use crate::structures::{
     is_none_bool,
     models::{Channel, UserSafe},
 };
+#[cfg(feature = "server")]
+use axum::extract::ws::Message;
 use serde::{Deserialize, Serialize};
 /// # Event.
 /// Event data is sent from Server to Client.
@@ -44,7 +44,6 @@ pub enum EventEnum {
         #[serde(skip_serializing_if = "Option::is_none")]
         data: Option<usize>,
     },
-
 }
 
 impl EventEnum {

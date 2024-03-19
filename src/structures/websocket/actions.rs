@@ -29,5 +29,4 @@ pub enum ActionEnum {
         typing: Option<bool>,
         channel: String,
     },
-
 }

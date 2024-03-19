@@ -12,11 +12,6 @@ pub fn rand() -> String {
 /// A simple check used by serde | Default data such as 'false', 'None' or 'Empty' are not sent
 /// to save data.
 
-/// Only sends if condition == true
-pub fn is_false(i: &bool) -> bool {
-    !*i
-}
-
 /// Only sends data if condition == Some(true).
 pub fn is_none_bool(i: &Option<bool>) -> bool {
     !matches!(i, Some(true))

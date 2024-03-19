@@ -15,7 +15,7 @@ pub struct State {
 }
 /// ## Event Message
 /// Contains a list of applicable targets, the original author and the message.
-#[derive(Debug,  Clone)]
+#[derive(Debug, Clone)]
 pub struct EventMessage {
     pub author: String,
     pub targets: IndexSet<String>,
