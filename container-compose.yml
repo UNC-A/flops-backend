@@ -6,7 +6,7 @@ services:
   db:
     image: mongo
     ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - "${DB_PORTS}"
     volumes:
       - ./db:/data
     env_file:
@@ -19,9 +19,9 @@ services:
   ws:
     build: .
     ports:
-      - "${PORT}:${PORT}"
+      - "${SERVER_PORTS}"
     command: ["cargo", "run", "-r"]  # run for release
-    #command: ["cargo", "run", "-r"]  # run for debug
+    #command: ["cargo", "run"]  # run for debug
     env_file:
       - .env
     depends_on:
