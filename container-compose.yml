@@ -3,7 +3,6 @@ networks:
   flops:
 
 services:
-
   db:
     image: mongo
     ports:
@@ -12,22 +11,21 @@ services:
       - ./db:/data
     env_file:
       - .env
-  #  restart: always
+    restart: always
     networks:
       - flops
 
 
   ws:
-    build: .  # Build the image from the current directory (modify if Dockerfile is elsewhere)
+    build: .
     ports:
       - "${PORT}:${PORT}"
-    #    volumes:
-    #      - ./:/usr/src/app:  # Mount your source code directory into the container
-    command: ["cargo", "run", "-r"]  # Run the Rust application using cargo
+    command: ["cargo", "run", "-r"]  # run for release
+    #command: ["cargo", "run", "-r"]  # run for debug
     env_file:
       - .env
     depends_on:
       - db
-    #  restart: always
+    restart: always
     networks:
       - flops
